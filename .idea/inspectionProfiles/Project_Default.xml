@@ -1,0 +1,34 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="13">
+            <item index="0" class="java.lang.String" itemvalue="recordlinkage" />
+            <item index="1" class="java.lang.String" itemvalue="ratelimit" />
+            <item index="2" class="java.lang.String" itemvalue="tiktoken" />
+            <item index="3" class="java.lang.String" itemvalue="cloudscraper" />
+            <item index="4" class="java.lang.String" itemvalue="paramiko" />
+            <item index="5" class="java.lang.String" itemvalue="SQLAlchemy" />
+            <item index="6" class="java.lang.String" itemvalue="Flask-Cors" />
+            <item index="7" class="java.lang.String" itemvalue="Werkzeug" />
+            <item index="8" class="java.lang.String" itemvalue="Flask-Uploads" />
+            <item index="9" class="java.lang.String" itemvalue="Flask" />
+            <item index="10" class="java.lang.String" itemvalue="interactions.py" />
+            <item index="11" class="java.lang.String" itemvalue="discord" />
+            <item index="12" class="java.lang.String" itemvalue="requests" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="spiders.Epigentek.Epigentek.detail_page_spider.*" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
