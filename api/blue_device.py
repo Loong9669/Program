@@ -42,7 +42,7 @@ def query_device_by_limit(db: Session,
     devices = db.query(BlueDevice).offset(offset).limit(pageSize).all()
     res = {}
     if devices:
-        res['count'] = len(devices)
+        res['total'] = len(devices)
         data = []
         for device in devices:
             tmp = {}

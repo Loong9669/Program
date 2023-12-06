@@ -50,6 +50,24 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        return {"username": username}
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+
 def create_access_token(data: dict,
                         expires_delta: timedelta):
     to_encode = data.copy()
@@ -63,6 +81,11 @@ def create_access_token(data: dict,
 def verify_password(plain_password,
                     hashed_password):
     return genarate_passwd(plain_password) == hashed_password
+
+
+@app.get("/current_user")
+async def get_current_user_route(current_user: dict = Depends(get_current_user)):
+    return current_user
 
 
 # Login endpoint
@@ -365,4 +388,4 @@ async def delete_program(token: str = Depends(oauth2_scheme),
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=1234)
+    uvicorn.run(app, host="0.0.0.0", port=1012)
