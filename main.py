@@ -118,7 +118,54 @@ async def add_user(username: str = Form(...),
             raise HTTPException(status_code=400, detail="error")
 
 
-@app.get("/program/detail/")
+@app.get("/app/program/detail/")
+async def get_program_detail(token: str = Depends(oauth2_scheme),
+                             state: str = Query(..., description="A required parameter"),
+                             uuid: str = Query(None, description="Optional. Provide either uuid or device_uuid."),
+                             device_uuid: str = Query(None, description="Optional. Provide either uuid or device_uuid."),
+                             db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        credentials_exception = HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+
+        # Successful verification
+        if not state:
+            raise HTTPException(status_code=400, detail="State is required")
+        if not uuid and not device_uuid:
+            raise HTTPException(status_code=400, detail="Either uuid or device_uuid is required")
+        if uuid and device_uuid:
+            raise HTTPException(status_code=400, detail="Choose either uuid or device_uuid, not both")
+
+        if uuid:
+            mini_program = get_mini_program_by_uuid(db, uuid, state)
+            if not mini_program:
+                raise HTTPException(status_code=400, detail="No data was queried")
+        else:
+            mini_program = get_mini_program_by_device_uuid(db, device_uuid, state)
+            if not mini_program:
+                raise HTTPException(status_code=400, detail="No data was queried")
+            uuid = mini_program.uuid
+
+        mini_program_names = get_mini_program_name_by_uuid(db, uuid)
+        mini_program_package = get_mini_program_package_by_uuid(db, uuid)
+        mini_program['names'] = mini_program_names
+        mini_program['package'] = mini_program_package
+
+        return mini_program
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+@app.get("/web/program/detail/")
 async def get_program_detail(token: str = Depends(oauth2_scheme),
                              state: str = Query(..., description="A required parameter"),
                              uuid: str = Query(None, description="Optional. Provide either uuid or device_uuid."),
@@ -166,7 +213,40 @@ async def get_program_detail(token: str = Depends(oauth2_scheme),
         raise credentials_exception
 
 
-@app.get("/programs")
+@app.get("/app/programs")
+async def get_programs(token: str = Depends(oauth2_scheme),
+                             state: str = Query(..., description="A required parameter"),
+                             db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        credentials_exception = HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+
+        # Successful verification
+        if not state:
+            raise HTTPException(status_code=400, detail="State is required")
+        programs = []
+        mini_programs = get_mini_program_by_state(db, state)
+        if mini_programs:
+            for mini_program in mini_programs:
+                uuid = mini_program.get('uuid')
+                mini_program['names'] = get_mini_program_name_by_uuid(db, uuid)
+                mini_program['packages'] = get_mini_program_package_by_uuid(db, uuid)
+                programs.append(mini_program)
+        return programs
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+@app.get("/web/programs")
 async def get_programs(token: str = Depends(oauth2_scheme),
                              state: str = Query(..., description="A required parameter"),
                              db: Session = Depends(get_db)):
@@ -200,7 +280,33 @@ async def get_programs(token: str = Depends(oauth2_scheme),
         raise credentials_exception
 
 
-@app.get("/program/uuid/")
+@app.get("/app/program/uuid/")
+async def get_programs(token: str = Depends(oauth2_scheme),
+                             device_uuid: str = Query(..., description="A required parameter"),
+                             db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        credentials_exception = HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+
+        # Successful verification
+        if not device_uuid:
+            raise HTTPException(status_code=400, detail="device_uuid is required")
+        uuid = get_mini_program_uuid_by_device_uuid(db, device_uuid)
+        return {'uuid': uuid}
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+@app.get("/web/program/uuid/")
 async def get_programs(token: str = Depends(oauth2_scheme),
                              device_uuid: str = Query(..., description="A required parameter"),
                              db: Session = Depends(get_db)):
@@ -227,7 +333,36 @@ async def get_programs(token: str = Depends(oauth2_scheme),
         raise credentials_exception
 
 
-@app.post("/device")
+@app.post("/app/device")
+async def add_device(token: str = Depends(oauth2_scheme),
+                             uuid: str = Query(..., description="A required parameter"),
+                             mini_program_uuid: str = Query(..., description="A required parameter"),
+                             db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        credentials_exception = HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        # Successful verification
+        if not uuid or not mini_program_uuid:
+            raise HTTPException(status_code=400, detail="device_uuid or mini_program_uuid is required")
+        res = insert_one_device(db, uuid, mini_program_uuid)
+        if res == True:
+            return {'Code': 200, 'detail': 'Inserted successfully'}
+        else:
+            raise HTTPException(status_code=400, detail="Insertion failure")
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+@app.post("/web/device")
 async def add_device(token: str = Depends(oauth2_scheme),
                              uuid: str = Query(..., description="A required parameter"),
                              mini_program_uuid: str = Query(..., description="A required parameter"),
@@ -257,7 +392,37 @@ async def add_device(token: str = Depends(oauth2_scheme),
         raise credentials_exception
 
 
-@app.delete("/device/{id}")
+@app.delete("/app/device/{id}")
+async def delete_device(token: str = Depends(oauth2_scheme),
+                             id: int = Path(..., description="A required parameter"),
+                             db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        credentials_exception = HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        # Successful verification
+        if not id:
+            raise HTTPException(status_code=400, detail="device_id is required")
+        res = delete_device_by_id(db, id)
+        if res == True:
+            return {'detail': 'Inserted successfully'}
+        elif res:
+            raise HTTPException(status_code=400, detail="ID does not exist")
+        else:
+            raise HTTPException(status_code=400, detail="Delete failure")
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+@app.delete("/web/device/{id}")
 async def delete_device(token: str = Depends(oauth2_scheme),
                              id: int = Path(..., description="A required parameter"),
                              db: Session = Depends(get_db)):
@@ -288,7 +453,35 @@ async def delete_device(token: str = Depends(oauth2_scheme),
         raise credentials_exception
 
 
-@app.get("/devices")
+@app.get("/app/devices")
+async def get_devices(token: str = Depends(oauth2_scheme),
+                             current: int = Query(..., description="A required parameter"),
+                             pageSize: int = Query(..., description="A required parameter"),
+                             db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        credentials_exception = HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        # Successful verification
+        if not current or not pageSize:
+            raise HTTPException(status_code=400, detail="pageSize or current is required")
+
+        devices = query_device_by_limit(db, current, pageSize)
+        return devices
+
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+@app.get("/web/devices")
 async def get_devices(token: str = Depends(oauth2_scheme),
                              current: int = Query(..., description="A required parameter"),
                              pageSize: int = Query(..., description="A required parameter"),
@@ -317,7 +510,46 @@ async def get_devices(token: str = Depends(oauth2_scheme),
         raise credentials_exception
 
 
-@app.post("/program")
+@app.post("/app/program")
+async def insert_program(item: ProgramItem,
+                         token: str = Depends(oauth2_scheme),
+                         db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        credentials_exception = HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        # Successful verification
+
+        uuid = item.uuid
+        icon = item.icon
+        device_uuid = item.device_uuid
+        names = item.names
+
+        if not uuid or not icon or not device_uuid or not names:
+            raise HTTPException(status_code=400, detail="Missing parameter")
+
+        res_program = insert_one_mini_program(db, uuid, icon, device_uuid)
+        res_program_name = insert_one_program_name(db, uuid, names)
+        if res_program and res_program_name:
+            return {'Code': 200, 'detail': 'Inserted successfully'}
+        else:
+            delete_program_by_uuid(db, uuid)
+            delete_program_name_by_uuid(db, uuid)
+            raise HTTPException(status_code=400, detail="Insertion failure")
+
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+@app.post("/web/program")
 async def insert_program(item: ProgramItem,
                          token: str = Depends(oauth2_scheme),
                          db: Session = Depends(get_db)):
@@ -357,7 +589,35 @@ async def insert_program(item: ProgramItem,
         raise credentials_exception
 
 
-@app.delete("/program/{uuid}")
+@app.delete("/app/program/{uuid}")
+async def delete_program(token: str = Depends(oauth2_scheme),
+                             uuid: int = Path(..., description="A required parameter"),
+                             db: Session = Depends(get_db)):
+    try:
+        # Verify the token
+        credentials_exception = HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        # Successful verification
+        if not uuid:
+            raise HTTPException(status_code=400, detail="uuid is required")
+        res = delete_program_by_uuid(db, uuid)
+        if res == True:
+            return {'detail': 'Delete successfully'}
+        else:
+            raise HTTPException(status_code=400, detail="Delete failure")
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+
+@app.delete("/web/program/{uuid}")
 async def delete_program(token: str = Depends(oauth2_scheme),
                              uuid: int = Path(..., description="A required parameter"),
                              db: Session = Depends(get_db)):
